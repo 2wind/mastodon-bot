@@ -8,15 +8,19 @@ public abstract class Fetcher
 {
     public abstract string Url { get; init; }
 
-
     protected abstract Dictionary<string, string> GetParameters();
 
     public virtual string ToToot(string content) => string.Empty;
 
+    private readonly HttpClient _httpClient;
+
+    protected Fetcher(HttpClient httpClient)
+    {
+        _httpClient = httpClient;
+    }
+
     public async Task<string> FetchAsync()
     {
-        var httpClient = new HttpClient();
-
         var query = GetParameters();
         var fullUrl = QueryHelpers.AddQueryString(Url, query);
         if (fullUrl == null)
@@ -24,7 +28,7 @@ public abstract class Fetcher
             throw new Exception("쿼리를 만들 수 없습니다.");
         }
 
-        var response = await httpClient.GetAsync(fullUrl);
+        var response = await _httpClient.GetAsync(fullUrl);
         var content = response.Content.ReadAsStringAsync().Result;
 
         return content;
@@ -39,7 +43,7 @@ public class WeatherFetcher : Fetcher
     private readonly string _serviceKey;
     private readonly (int x, int y) _position;
 
-    public WeatherFetcher(string serviceKey, (int x, int y) position)
+    public WeatherFetcher(string serviceKey, (int x, int y) position, HttpClient httpClient) : base(httpClient)
     {
         _serviceKey = serviceKey;
         _position = position;
@@ -83,7 +87,7 @@ public class WeatherReportFetcher : Fetcher
     public override string Url { get; init; } = "https://apis.data.go.kr/1360000/VilageFcstMsgService/getWthrSituation";
     private readonly string _serviceKey;
 
-    public WeatherReportFetcher(string serviceKey)
+    public WeatherReportFetcher(string serviceKey, HttpClient httpClient) : base(httpClient)
     {
         _serviceKey = serviceKey;
     }
@@ -118,8 +122,8 @@ public class WeatherReportFetcher : Fetcher
             if (report == null) return string.Empty;
 
             var toot = $"기상청 발표 기상시황({time} 발표):\n{report}";
-            Console.WriteLine(toot);
-            return report;
+            // Console.WriteLine(toot);
+            return toot;
         }
         catch (Exception e)
         {

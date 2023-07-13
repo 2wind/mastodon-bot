@@ -27,9 +27,16 @@ public class Provider
         return serviceKey;
     }
 
+    public (string?, string?) GetMastodonClientKeySecret()
+    {
+        var clientKey = _settings["clientKey"] as string;
+        var clientSecret = _settings["clientSecret"] as string;
+        return (clientKey, clientSecret);
+    }
+
     public string? GetMastodonAccessToken()
     {
-        var accessToken = _settings["mastodon"] as string;
+        var accessToken = _settings["accessToken"] as string;
         return accessToken;
     }
 

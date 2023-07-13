@@ -14,12 +14,22 @@
 
             var position = provider.GetPositionBasedOnTime(DateTime.Now);
 
+            var httpClient = new HttpClient();
+
             var fetchers = new List<Fetcher>()
             {
-                new WeatherFetcher(serviceKey, position),
-                new WeatherReportFetcher(serviceKey)
+                new WeatherFetcher(serviceKey, position, httpClient),
+                new WeatherReportFetcher(serviceKey, httpClient)
             };
 
+            var token = provider.GetMastodonAccessToken();
+            if (token == null)
+            {
+                throw new Exception("액세스 토큰을 불러올 수 없습니다.");
+                return;
+            }
+
+            var tooter = new Tooter(token, Constants.Instance, httpClient);
 
             // TODO 비동기 프로그래밍을 제대로 이용하기
 
@@ -27,7 +37,7 @@
             {
                 try
                 {
-                    var toot = fetcher.ToToot(fetcher.FetchAsync().Result);
+                    TryTootAsync(fetcher, tooter).Wait();
                 }
                 catch (Exception e)
                 {
@@ -55,6 +65,16 @@
 
             //Console.WriteLine(weatherContent);
             //Console.WriteLine(reportContent); // body.items.item[0].wfSv1 을 출력하면 됨
+        }
+
+        private static async Task TryTootAsync(Fetcher fetcher, Tooter tooter)
+        {
+            var content = await fetcher.FetchAsync();
+            var toot = fetcher.ToToot(content);
+            if (toot != string.Empty)
+            {
+                await tooter.MakeToot(toot);
+            }
         }
     }
 }

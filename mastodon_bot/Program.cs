@@ -1,6 +1,4 @@
-﻿using System.Text.Json;
-
-namespace mastodon_bot
+﻿namespace mastodon_bot
 {
     class Program
     {
@@ -16,13 +14,27 @@ namespace mastodon_bot
 
             var position = provider.GetPositionBasedOnTime(DateTime.Now);
 
-            var weatherFetcher = new WeatherFetcher(serviceKey, position);
-            var reportFetcher = new WeatherReportFetcher(serviceKey);
+            var fetchers = new List<Fetcher>()
+            {
+                new WeatherFetcher(serviceKey, position),
+                new WeatherReportFetcher(serviceKey)
+            };
+
 
             // TODO 비동기 프로그래밍을 제대로 이용하기
 
-            var weatherContent = weatherFetcher.FetchAsync().Result;
-            var reportContent = reportFetcher.FetchAsync().Result;
+            foreach (var fetcher in fetchers)
+            {
+                try
+                {
+                    var toot = fetcher.ToToot(fetcher.FetchAsync().Result);
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine(e);
+                    continue;
+                }
+            }
 
             // TODO JSON 파싱하기
             // JSON 객체 상태에서 작업할지, C# 객체 상태에서 작업할지 결정하기

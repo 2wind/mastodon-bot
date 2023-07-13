@@ -1,10 +1,11 @@
 ﻿using Tomlyn;
+using Tomlyn.Model;
 
 namespace mastodon_bot;
 
 public class Provider
 {
-    public static Dictionary<string, Location> _nameToLocation = new()
+    private static readonly Dictionary<string, Location> NameToLocation = new()
     {
         { "압구정", new Location("압구정", 61, 126) },
         {
@@ -12,24 +13,35 @@ public class Provider
         }
     };
 
-    public string? GetServiceKey()
+    private TomlTable _settings;
+
+    public Provider()
     {
         var text = File.ReadAllText(Constants.FilePath);
-        var settings = Toml.ToModel(text);
+        _settings = Toml.ToModel(text);
+    }
 
-        var serviceKey = settings["serviceKey"] as string;
+    public string? GetServiceKey()
+    {
+        var serviceKey = _settings["serviceKey"] as string;
         return serviceKey;
+    }
+
+    public string? GetMastodonAccessToken()
+    {
+        var accessToken = _settings["mastodon"] as string;
+        return accessToken;
     }
 
     public (int x, int y) GetPositionBasedOnTime(DateTime dateTime)
     {
         if (dateTime.Date.DayOfWeek < DayOfWeek.Saturday)
         {
-            return _nameToLocation["관악"].Position;
+            return NameToLocation["관악"].Position;
         }
         else
         {
-            return _nameToLocation["압구정"].Position;
+            return NameToLocation["압구정"].Position;
         }
     }
 }

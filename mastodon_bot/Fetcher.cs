@@ -1,6 +1,8 @@
-﻿namespace mastodon_bot;
-
+﻿using System.Globalization;
+using System.Text.Json;
 using Microsoft.AspNetCore.WebUtilities;
+
+namespace mastodon_bot;
 
 public abstract class Fetcher
 {
@@ -9,6 +11,7 @@ public abstract class Fetcher
 
     protected abstract Dictionary<string, string> GetParameters();
 
+    public virtual string ToToot(string content) => string.Empty;
 
     public async Task<string> FetchAsync()
     {
@@ -95,5 +98,33 @@ public class WeatherReportFetcher : Fetcher
             { "dataType", "JSON" },
             { "stnId", "109" }, // 서울
         };
+    }
+
+    public override string ToToot(string content)
+    {
+        // body.items.item[0].wfSv1 을 출력하면 됨
+        try
+        {
+            using var json = JsonDocument.Parse(content);
+            var mainContent = json.RootElement.GetProperty("response").GetProperty("body").GetProperty("items")
+                .GetProperty("item")[0];
+            var rawTime = mainContent.GetProperty("tmFc").GetInt64().ToString();
+
+            var time = new DateTime(int.Parse(rawTime[0..4]), int.Parse(rawTime[4..6]), int.Parse(rawTime[6..8]),
+                int.Parse(rawTime[8..10]), int.Parse(rawTime[10..12]), 0);
+
+            var report = mainContent.GetProperty("wfSv1").GetString();
+
+            if (report == null) return string.Empty;
+
+            var toot = $"기상청 발표 기상시황({time} 발표):\n{report}";
+            Console.WriteLine(toot);
+            return report;
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine(e);
+            throw;
+        }
     }
 }

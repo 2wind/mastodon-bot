@@ -30,7 +30,9 @@ public class Provider
         var value = _settings[key] as string;
         if (value == null)
         {
-            throw new Exception($"설정 파일에 {key}가 없습니다.");
+            var message = $"설정 파일에 {key}가 없습니다.";
+            Logger.LogError(message);
+            throw new Exception(message);
         }
 
         return value;

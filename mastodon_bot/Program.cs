@@ -17,7 +17,11 @@ namespace mastodon_bot
         static void Main(string[] args)
         {
             var isLocal = false;
-            Parser.Default.ParseArguments<Options>(args).WithParsed(options => isLocal = options.IsLocal);
+            Parser.Default.ParseArguments<Options>(args).WithParsed(options =>
+            {
+                isLocal = options.IsLocal;
+                Logger.IsVerbose = options.Verbose;
+            });
 
             var provider = new Provider();
             var serviceKey = provider.GetServiceKey();
@@ -45,7 +49,7 @@ namespace mastodon_bot
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine(e);
+                    Logger.LogError(e);
                     continue;
                 }
             }

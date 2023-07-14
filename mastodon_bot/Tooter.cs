@@ -38,7 +38,7 @@ public class Tooter : TooterBase
 
     public override async Task MakeToot(string toot)
     {
-        Console.WriteLine($"Tooting :{toot}");
+        Logger.Log($"Tooting :{toot}");
         await _client.PublishStatus(toot, Visibility.Unlisted);
     }
 }

@@ -33,7 +33,6 @@ public abstract class ContentCreator
 // category별로 묶은 자료구조 하나 (여러 (fcstData, fcstTime, fcstValue)를 가질 것이다.)
 // private 생성자로 넣고, human readable한 프로퍼티로 접근하자.
 
-//Console.WriteLine(weatherContent);
 public class WeatherContentCreator : ContentCreator
 {
     public override string Url { get; init; } = Constants.WeatherUrl;
@@ -125,7 +124,7 @@ public class WeatherReportContentCreator : ContentCreator
             if (report == null) return string.Empty;
 
             var toot = $"기상청 발표 기상시황({time} 발표):\n{report}";
-            // Console.WriteLine(toot);
+            Logger.Log(toot);
             return toot;
         }
         catch (Exception e)

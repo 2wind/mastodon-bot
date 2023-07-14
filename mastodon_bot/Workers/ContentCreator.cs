@@ -80,9 +80,124 @@ public class WeatherContentCreator : ContentCreator
     }
 
 
-    private string ToToot(JsonDocument yesterday, JsonDocument today)
+    private string ToToot(JsonDocument yesterdayJson, JsonDocument todayJson)
     {
-        return string.Empty;
+        string GetMinMaxTempComparisonText(DateTime dateTime, List<(DateTime, WeatherContent)> valueTuples,
+            DateTime today1, List<(DateTime, WeatherContent)> list)
+        {
+            string GetComparison(string title, float prev, float next)
+            {
+                if (Math.Abs(prev - next) < 0.01f)
+                {
+                    return $"{title}은 {prev}℃로 일정해요.";
+                }
+                else
+                {
+                    return $"{title}은 {prev}℃에서 {next}℃로 " + ((prev > next) ? "낮아져요." : "높아져요.");
+                }
+            }
+
+            // 어제 데이터와 오늘에서 어제 기록 중, 일 최저기온과 일 최고기온을 추출한다.
+            var yesterdayMinMaxTemp = GetMinMaxTemp(dateTime, valueTuples);
+            var todayMinMaxTemp = GetMinMaxTemp(today1, list);
+
+            if (yesterdayMinMaxTemp.Count != 2 || todayMinMaxTemp.Count != 2)
+            {
+                Logger.LogError("어제나 오늘의 최저기온과 최고기온이 모두 존재하지 않습니다.");
+                return "";
+            }
+
+            var yesterdayMin = yesterdayMinMaxTemp[WeatherCategoryType.DailyMinTemperature];
+            var yesterdayMax = yesterdayMinMaxTemp[WeatherCategoryType.DailyMaxTemperature];
+            var todayMin = todayMinMaxTemp[WeatherCategoryType.DailyMinTemperature];
+            var todayMax = todayMinMaxTemp[WeatherCategoryType.DailyMaxTemperature];
+
+            var s = $"{GetComparison("최저기온", yesterdayMin, todayMin)} {GetComparison("최고기온", yesterdayMax, todayMax)}";
+            return s;
+        }
+
+        Dictionary<WeatherCategoryType, float> GetMinMaxTemp(DateTime timeToCheck,
+            List<(DateTime Key, WeatherContent Value)> weatherContents)
+        {
+            return weatherContents.Where(pair => pair.Key.Date == timeToCheck.Date)
+                .Where(pair =>
+                    pair.Value.Category.Type is WeatherCategoryType.DailyMinTemperature
+                        or WeatherCategoryType.DailyMaxTemperature)
+                .GroupBy(pair => pair.Value.Category.Type)
+                .Select(group => (group.Key, group.Average(pair => float.Parse(pair.Value.ForecastValue))))
+                .ToDictionary(tuple => tuple.Key, tuple => tuple.Item2);
+        }
+
+        var today = DateTime.Now;
+        var yesterday = DateTime.Now.AddDays(-1);
+
+        var yesterdayData = ToWeatherContents(yesterdayJson);
+        var todayData = ToWeatherContents(todayJson);
+
+        var reportDate = todayData.First().Item2.BaseDateTime;
+        var reportDateString = reportDate.ToString("(M월 d일 H시 일기예보 기준)\n");
+
+        // TODO: 이 절망적인 나열을 개선하자.
+        var minMaxTempComparisonText = GetMinMaxTempComparisonText(yesterday, yesterdayData, today, todayData);
+
+        // 오늘의 날씨를 요약한다. 오늘로부터 09시, 19시의 강수확률과 강수량을 최대 6회까지 추출한다.
+        var todayWeatherSummaryData = todayData.Where(pair => pair.Item1.Hour is 9 or 19)
+            .Where(pair => pair.Item2.Category.Type is WeatherCategoryType.RainProbability
+                or WeatherCategoryType.RainPattern or WeatherCategoryType.RainPerHour
+                or WeatherCategoryType.SnowPerHour)
+            .GroupBy(pair => pair.Item1)
+            .Take(6);
+
+        var todayWeatherSummaryText = "오늘의 날씨를 요약하면, ";
+        foreach (var weatherData in todayWeatherSummaryData)
+        {
+            var weatherSlice = new WeatherSlice() { BaseDateTime = weatherData.Key };
+            foreach (var weatherContent in weatherData)
+            {
+                switch (weatherContent.Item2.Category.Type)
+                {
+                    case WeatherCategoryType.RainProbability:
+                    {
+                        weatherSlice.RainProbability = float.Parse(weatherContent.Item2.ForecastValue);
+                        break;
+                    }
+                    case WeatherCategoryType.RainPattern:
+                    {
+                        weatherSlice.RainPattern =
+                            (WeatherSlice.RainPatternType)int.Parse(weatherContent.Item2.ForecastValue);
+                        break;
+                    }
+                    case WeatherCategoryType.RainPerHour:
+                    {
+                        weatherSlice.RainPerHour = weatherContent.Item2.ForecastValue;
+                        break;
+                    }
+                    case WeatherCategoryType.SnowPerHour:
+                    {
+                        weatherSlice.SnowPerHour = weatherContent.Item2.ForecastValue;
+                        break;
+                    }
+                }
+            }
+
+            todayWeatherSummaryText += weatherSlice + "\n";
+        }
+
+        var result = reportDateString + minMaxTempComparisonText + "\n" + todayWeatherSummaryText;
+
+        return result.Trim();
+    }
+
+    private List<(DateTime, WeatherContent)> ToWeatherContents(JsonDocument jsonDocument)
+    {
+        var items = jsonDocument.RootElement.GetProperty("response").GetProperty("body").GetProperty("items")
+            .GetProperty("item");
+        var test = items.EnumerateArray();
+
+        return (test.Select(itemElement => itemElement.Deserialize<WeatherContentRaw>())
+                .Where(weatherContentRaw => weatherContentRaw != null)
+                .Select(weatherContentRaw => new WeatherContent(weatherContentRaw)))
+            .Select(content => (content.ForecastDateTime, content)).ToList();
     }
 
     private DateTime GetReportTime(DateTime dateTime)

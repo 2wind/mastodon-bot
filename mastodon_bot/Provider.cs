@@ -21,23 +21,19 @@ public class Provider
         _settings = Toml.ToModel(text);
     }
 
-    public string? GetServiceKey()
-    {
-        var serviceKey = _settings["serviceKey"] as string;
-        return serviceKey;
-    }
+    public string GetServiceKey() => GetSettingKey("serviceKey");
+    public string GetInstance() => GetSettingKey("instance");
+    public string GetMastodonAccessToken() => GetSettingKey("accessToken");
 
-    public (string?, string?) GetMastodonClientKeySecret()
+    private string GetSettingKey(string key)
     {
-        var clientKey = _settings["clientKey"] as string;
-        var clientSecret = _settings["clientSecret"] as string;
-        return (clientKey, clientSecret);
-    }
+        var value = _settings[key] as string;
+        if (value == null)
+        {
+            throw new Exception($"설정 파일에 {key}가 없습니다.");
+        }
 
-    public string? GetMastodonAccessToken()
-    {
-        var accessToken = _settings["accessToken"] as string;
-        return accessToken;
+        return value;
     }
 
     public (int x, int y) GetPositionBasedOnTime(DateTime dateTime)

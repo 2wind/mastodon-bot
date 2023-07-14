@@ -8,6 +8,7 @@
     </PropertyGroup>
 
     <ItemGroup>
+      <PackageReference Include="CommandLineParser" Version="2.9.1" />
       <PackageReference Include="Mastonet" Version="2.4.0-preview-separate-entities-1" />
       <PackageReference Include="Microsoft.AspNetCore.WebUtilities" Version="2.2.0" />
       <PackageReference Include="Tomlyn" Version="0.16.2" />

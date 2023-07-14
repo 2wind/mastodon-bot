@@ -2,7 +2,28 @@
 
 using Mastonet;
 
-public class Tooter
+public abstract class TooterBase
+{
+    public abstract Task MakeToot(string toot);
+
+    public static TooterBase CreateTooter(bool isLocal, string accessToken, string instance, HttpClient httpClient)
+    {
+        return isLocal
+            ? new TestTooter()
+            : new Tooter(accessToken, instance, httpClient);
+    }
+}
+
+public class TestTooter : TooterBase
+{
+    public override async Task MakeToot(string toot)
+    {
+        Console.WriteLine("Dummy tooter, no actual toot made!");
+        Console.WriteLine($"Tooting :{toot}");
+    }
+}
+
+public class Tooter : TooterBase
 {
     private readonly string _accessToken;
     private readonly string _instance;
@@ -15,7 +36,7 @@ public class Tooter
         _client = new MastodonClient(_instance, _accessToken, httpClient);
     }
 
-    public async Task MakeToot(string toot)
+    public override async Task MakeToot(string toot)
     {
         Console.WriteLine($"Tooting :{toot}");
         await _client.PublishStatus(toot, Visibility.Unlisted);

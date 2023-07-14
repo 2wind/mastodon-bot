@@ -2,6 +2,9 @@
 
 public static class Constants
 {
-    public static readonly string FilePath = @"settings.toml";
-    public static readonly string Instance = @"https://social.silicon.moe";
+    public const string FilePath = @"settings.toml";
+
+    public const string WeatherUrl = @"https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getVilageFcst";
+
+    public const string WeatherReportUrl = @"https://apis.data.go.kr/1360000/VilageFcstMsgService/getWthrSituation";
 }

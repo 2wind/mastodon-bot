@@ -5,14 +5,15 @@ namespace mastodon_bot;
 public abstract class ContentCreator
 {
     public abstract string Url { get; init; }
-    public abstract Dictionary<string, string> GetParameters();
-    public abstract string ToToot(JsonDocument content);
+    protected abstract Dictionary<string, string> GetParameters(DateTime dateTime);
+
+    public abstract Task<string> FetchToToot(DateTime dateTime);
 
     protected FetcherBase FetcherBase { get; init; }
 
-    public async Task<string> FetchAsync()
+    protected async Task<string> FetchAsync(DateTime dateTime)
     {
-        return await FetcherBase.FetchAsync(Url, GetParameters());
+        return await FetcherBase.FetchAsync(Url, GetParameters(dateTime));
     }
 }
 
@@ -33,6 +34,8 @@ public abstract class ContentCreator
 // category별로 묶은 자료구조 하나 (여러 (fcstData, fcstTime, fcstValue)를 가질 것이다.)
 // private 생성자로 넣고, human readable한 프로퍼티로 접근하자.
 
+// 원하는 정보는: 
+
 public class WeatherContentCreator : ContentCreator
 {
     public override string Url { get; init; } = Constants.WeatherUrl;
@@ -48,9 +51,9 @@ public class WeatherContentCreator : ContentCreator
         FetcherBase = fetcherBase;
     }
 
-    public override Dictionary<string, string> GetParameters()
+    protected override Dictionary<string, string> GetParameters(DateTime dateTime)
     {
-        var reportTime = GetReportTime(DateTime.Now);
+        var reportTime = GetReportTime(dateTime);
         return new Dictionary<string, string>()
         {
             { "serviceKey", _serviceKey },
@@ -64,7 +67,23 @@ public class WeatherContentCreator : ContentCreator
         };
     }
 
-    public override string ToToot(JsonDocument content) => string.Empty;
+    public override async Task<string> FetchToToot(DateTime dateTime)
+    {
+        var contentYesterday = await FetchAsync(DateTime.Now.AddDays(-1));
+        using var jsonYesterday = JsonDocument.Parse(contentYesterday);
+
+        var contentToday = await FetchAsync(DateTime.Now);
+        using var jsonToday = JsonDocument.Parse(contentToday);
+
+        var toot = ToToot(jsonYesterday, jsonToday);
+        return toot;
+    }
+
+
+    private string ToToot(JsonDocument yesterday, JsonDocument today)
+    {
+        return string.Empty;
+    }
 
     private DateTime GetReportTime(DateTime dateTime)
     {
@@ -95,7 +114,7 @@ public class WeatherReportContentCreator : ContentCreator
         FetcherBase = fetcherBase;
     }
 
-    public override Dictionary<string, string> GetParameters()
+    protected override Dictionary<string, string> GetParameters(DateTime dateTime)
     {
         return new Dictionary<string, string>()
         {
@@ -107,7 +126,16 @@ public class WeatherReportContentCreator : ContentCreator
         };
     }
 
-    public override string ToToot(JsonDocument content)
+    public override async Task<string> FetchToToot(DateTime dateTime)
+    {
+        var content = await FetchAsync(DateTime.Now);
+        using var json = JsonDocument.Parse(content);
+        var toot = ToToot(json);
+        return toot;
+    }
+
+
+    private string ToToot(JsonDocument content)
     {
         // body.items.item[0].wfSv1 을 출력하면 됨
         try

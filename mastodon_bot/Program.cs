@@ -57,9 +57,7 @@ namespace mastodon_bot
 
         private static async Task TryTootAsync(ContentCreator contentCreator, TooterBase tooterBase)
         {
-            var content = await contentCreator.FetchAsync();
-            using var json = JsonDocument.Parse(content);
-            var toot = contentCreator.ToToot(json);
+            var toot = await contentCreator.FetchToToot(DateTime.Now);
             if (toot != string.Empty)
             {
                 await tooterBase.MakeToot(toot);

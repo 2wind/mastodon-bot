@@ -17,17 +17,23 @@ public class Provider
 
     public Provider()
     {
-        var text = File.ReadAllText(Constants.FilePath);
+        var settingPath = Path.Join(AppDomain.CurrentDomain.BaseDirectory, Constants.FilePath);
+        var text = File.ReadAllText(settingPath);
         _settings = Toml.ToModel(text);
     }
 
-    public string GetServiceKey() => GetSettingKey("serviceKey");
-    public string GetInstance() => GetSettingKey("instance");
-    public string GetMastodonAccessToken() => GetSettingKey("accessToken");
+    public string GetServiceKey() => GetSettingKey<string>("serviceKey");
+    public string GetInstance() => GetSettingKey<string>("instance");
+    public string GetMastodonAccessToken() => GetSettingKey<string>("accessToken");
 
-    private string GetSettingKey(string key)
+    public (int maxRetryCount, float delay) GetRetryInfo()
     {
-        var value = _settings[key] as string;
+        return (GetSettingKeyParse<int>("maxRetryCount"), GetSettingKeyParse<float>("delay"));
+    }
+
+    private T GetSettingKey<T>(string key) where T : class
+    {
+        var value = _settings[key] as T;
         if (value == null)
         {
             var message = $"설정 파일에 {key}가 없습니다.";
@@ -38,6 +44,20 @@ public class Provider
         return value;
     }
 
+    private T GetSettingKeyParse<T>(string key) where T : IParsable<T>
+    {
+        if (!T.TryParse(_settings[key].ToString(), null, out var value))
+        {
+            var message = $"설정 파일에 {key}가 없습니다.";
+            Logger.LogError(message);
+            throw new Exception(message);
+        }
+
+        return value;
+    }
+
+
+    // TODO: LocationProvider로 분리하면 좋을 것 같다.
     public (int x, int y) GetPositionBasedOnTime(DateTime dateTime)
     {
         if (dateTime.Date.DayOfWeek < DayOfWeek.Saturday)

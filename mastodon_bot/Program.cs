@@ -1,4 +1,5 @@
-﻿using System.Text.Json;
+﻿using System.Globalization;
+using System.Text.Json;
 using CommandLine;
 
 namespace mastodon_bot
@@ -20,6 +21,8 @@ namespace mastodon_bot
 
         static void Main(string[] args)
         {
+            CultureInfo.CurrentCulture = new CultureInfo("ko-KR");
+
             var isLocal = false;
             var noToot = false;
             Parser.Default.ParseArguments<Options>(args).WithParsed(options =>
@@ -32,9 +35,10 @@ namespace mastodon_bot
             var provider = new Provider();
             var serviceKey = provider.GetServiceKey();
             var position = provider.GetPositionBasedOnTime(DateTime.Now);
+            var (maxRetryCount, delay) = provider.GetRetryInfo();
 
             var httpClient = new HttpClient();
-            var fetcher = FetcherBase.CreateFetcher(isLocal, httpClient);
+            var fetcher = FetcherBase.CreateFetcher(isLocal, httpClient, maxRetryCount, delay);
 
             var contentCreators = new List<ContentCreator>()
             {
@@ -43,7 +47,7 @@ namespace mastodon_bot
             };
 
             var tooter = TooterBase.CreateTooter(noToot, provider.GetMastodonAccessToken(), provider.GetInstance(),
-                httpClient);
+                httpClient, maxRetryCount, delay);
 
             // TODO 비동기 프로그래밍을 제대로 이용하기
 

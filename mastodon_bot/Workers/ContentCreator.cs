@@ -17,25 +17,6 @@ public abstract class ContentCreator
     }
 }
 
-// TODO JSON 파싱하기
-// JSON 객체 상태에서 작업할지, C# 객체 상태에서 작업할지 결정하기
-
-// 각 Item은 baseData, baseTime, category, fcstDate, fcstTime, fcstValue, nx, ny를 가지고 있음
-// baseData, baseTime : 일기예보를 한 날짜와 시간
-// nx, ny : 예보 지점의 x, y 좌표 (보낸 것과 동일할 것이다.)
-
-// fcstData, fcstTime : 예보의 대상이 되는 날짜와 시간
-// category : 예보 항목, fcstValue : 예보 값
-// 예보 항목은 POP(강수확률), PTY(강수형태), R06(6시간 강수량), REH(습도), S06(6시간 신적설), SKY(하늘상태), T3H(3시간 기온), TMN(아침 최저기온), TMX(낮 최고기온), UUU(풍속(동서성분)), VVV(풍속(남북성분)), WAV(파고), VEC(풍향), WSD(풍속)가 있음
-// 각 항목의 단위는 각각 %, 코드값, 벡터, %, 벡터, 코드값, ℃, ℃, ℃, m/s, m/s, M, deg, m/s
-// 코드값은 별도로 Dict를 만드는 것이 좋겠다.
-
-// (fcstData, fcstTime)별로 묶은 자료구조 하나 (여러 (category, fcstValue)를 가질 것이다.)
-// category별로 묶은 자료구조 하나 (여러 (fcstData, fcstTime, fcstValue)를 가질 것이다.)
-// private 생성자로 넣고, human readable한 프로퍼티로 접근하자.
-
-// 원하는 정보는: 
-
 public class WeatherContentCreator : ContentCreator
 {
     public override string Url { get; init; } = Constants.WeatherUrl;
@@ -93,7 +74,7 @@ public class WeatherContentCreator : ContentCreator
                 }
                 else
                 {
-                    var arrow = (prev > next) ? "↗" : "↘";
+                    var arrow = (prev < next) ? "↗" : "↘";
                     return $"{title}: {prev}℃ {arrow} {next}℃";
                 }
             }
@@ -170,12 +151,26 @@ public class WeatherContentCreator : ContentCreator
         // 이미 9시를 지났다면, 강수량 -> 오후 7시 -> 다음날 오전 9시 순으로 표시한다.
         // 그 사이의 강수확률이 있을 경우, "11시(10%), 12시(60%), 13시(30%)"와 같이 표시한다.
 
-        var combinedRainData = new List<WeatherSlice>();
+        var combinedRainData = new Dictionary<DateTime, List<string>>();
+
+        void TryAddOrCreate(WeatherSlice slice)
+        {
+            if (combinedRainData.TryGetValue(slice.ForecastDateTime.Date, out var rainData))
+            {
+                rainData.Add(slice.ToString());
+            }
+            else
+            {
+                combinedRainData.Add(slice.ForecastDateTime.Date, new List<string> { slice.ToString() });
+            }
+        }
+
         foreach (var weatherSlice in todayWeatherSummaryData)
         {
             if (weatherSlice.ForecastDateTime.Hour < 12)
             {
-                combinedRainData.Add(weatherSlice);
+                TryAddOrCreate(weatherSlice);
+
                 continue;
             }
 
@@ -183,17 +178,22 @@ public class WeatherContentCreator : ContentCreator
                 group.Key == weatherSlice.ForecastDateTime.Date);
             if (rainDataBetween9And19.Value != null)
             {
-                combinedRainData.AddRange(rainDataBetween9And19.Value);
+                var joinedData = string.Join(" | ", rainDataBetween9And19.Value);
+                if (combinedRainData.TryGetValue(weatherSlice.ForecastDateTime.Date, out var rainData))
+                {
+                    rainData.Add(joinedData);
+                }
+                else
+                {
+                    combinedRainData.Add(weatherSlice.ForecastDateTime.Date, new List<string>() { joinedData });
+                }
             }
 
-            combinedRainData.Add(weatherSlice);
+            TryAddOrCreate(weatherSlice);
         }
 
-        var todayWeatherSummaryText = "[일기예보]\n";
-        foreach (var weatherSlice in combinedRainData)
-        {
-            todayWeatherSummaryText += weatherSlice;
-        }
+        var todayWeatherSummaryText =
+            "[일기예보]\n" + string.Join("\n\n", combinedRainData.Select(pair => string.Join("\n", pair.Value)));
 
         var result = reportDateString + minMaxTempComparisonText + "\n" + todayWeatherSummaryText;
 
@@ -277,8 +277,14 @@ public class WeatherReportContentCreator : ContentCreator
             var report = mainContent.GetProperty("wfSv1").GetString();
 
             if (report == null) return string.Empty;
+            report = report.Trim();
+            var reportTrimmed = report[..Math.Min(report.Length, Constants.MaxTootLengthWithMargin)];
+            if (report.Length != reportTrimmed.Length)
+            {
+                reportTrimmed += "...";
+            }
 
-            var toot = $"기상청 발표 기상시황({time} 발표):\n{report}";
+            var toot = $"기상청 발표 기상시황({time} 발표):\n{reportTrimmed}";
             Logger.Log(toot);
             toot = toot.Trim();
             return toot;

@@ -6,31 +6,60 @@ public abstract class FetcherBase
 {
     public abstract Task<string> FetchAsync(string url, IDictionary<string, string> query);
 
-    public static FetcherBase CreateFetcher(bool isLocal, HttpClient httpClient)
+    public static FetcherBase CreateFetcher(bool isLocal, HttpClient httpClient, int maxRetry, float delay)
     {
-        return isLocal ? new LocalFetcherBase() : new Fetcher(httpClient);
+        return isLocal ? new LocalFetcherBase() : new Fetcher(httpClient, maxRetry, delay);
     }
 }
 
 public class Fetcher : FetcherBase
 {
     private readonly HttpClient _httpClient;
+    private readonly int _maxRetry;
+    private readonly float _delay;
 
-    public Fetcher(HttpClient httpClient)
+    public Fetcher(HttpClient httpClient, int maxRetry, float delay)
     {
         _httpClient = httpClient;
+        _maxRetry = maxRetry;
+        _delay = delay;
     }
 
     public override async Task<string> FetchAsync(string url, IDictionary<string, string> query)
     {
-        var fullUrl = QueryHelpers.AddQueryString(url, query);
-        if (fullUrl == null)
+        var tryCount = 0;
+        var success = false;
+        var content = string.Empty;
+        while (!success && tryCount < _maxRetry)
         {
-            throw new Exception("쿼리를 만들 수 없습니다.");
-        }
+            try
+            {
+                var fullUrl = QueryHelpers.AddQueryString(url, query);
+                if (fullUrl == null)
+                {
+                    throw new Exception("쿼리를 만들 수 없습니다.");
+                }
 
-        var response = await _httpClient.GetAsync(fullUrl);
-        var content = response.Content.ReadAsStringAsync().Result;
+                var response = await _httpClient.GetAsync(fullUrl);
+                content = response.Content.ReadAsStringAsync().Result;
+                Logger.Log($"Successfully fetched content! length {content.Length}");
+                Logger.Log($"Content: {content[0..Math.Min(content.Length, 100)]}...");
+                success = true;
+                return content;
+            }
+            catch (Exception e)
+            {
+                Logger.LogError(e);
+                Logger.Log($"Retrying after {_delay}...({tryCount} / {_maxRetry}))");
+                if (tryCount >= _maxRetry)
+                {
+                    throw;
+                }
+            }
+
+            await Task.Delay(TimeSpan.FromSeconds(_delay));
+            tryCount++;
+        }
 
         return content;
     }

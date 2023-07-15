@@ -1,4 +1,6 @@
-﻿namespace mastodon_bot;
+﻿using System.Globalization;
+
+namespace mastodon_bot;
 
 public record WeatherContentRaw(
     string baseDate,
@@ -175,7 +177,7 @@ public class WeatherSlice
 
     public override string ToString()
     {
-        var result = ForecastDateTime.ToString("M월 d일 tt h시") + ": ";
+        var result = ForecastDateTime.ToString("M월 d일 tt h시", new CultureInfo("ko-KR")) + ": ";
         result += RainPattern switch
         {
             RainPatternType.None => "☀️맑음",
@@ -187,7 +189,7 @@ public class WeatherSlice
             RainPatternType.Hail =>
                 $"⛈️소나기: ({RainProbability}%, {RainPerHour})",
         };
-        return "\n" + result;
+        return result;
     }
 }
 
@@ -211,6 +213,6 @@ class WeatherShortSlice : WeatherSlice
             RainPatternType.Hail =>
                 $"⛈️소나기({RainProbability}%, {RainPerHour})",
         };
-        return " |" + result;
+        return result;
     }
 }

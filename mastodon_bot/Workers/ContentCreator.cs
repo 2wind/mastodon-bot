@@ -89,11 +89,12 @@ public class WeatherContentCreator : ContentCreator
             {
                 if (Math.Abs(prev - next) < 0.01f)
                 {
-                    return $"{title}은 {prev}℃로 일정해요.";
+                    return $"{title}: {prev}℃";
                 }
                 else
                 {
-                    return $"{title}은 {prev}℃에서 {next}℃로 " + ((prev > next) ? "낮아져요." : "높아져요.");
+                    var arrow = (prev > next) ? "↗" : "↘";
+                    return $"{title}: {prev}℃ {arrow} {next}℃";
                 }
             }
 
@@ -135,7 +136,7 @@ public class WeatherContentCreator : ContentCreator
         var todayData = ToWeatherContents(todayJson);
 
         var reportDate = todayData.First().Item2.BaseDateTime;
-        var reportDateString = reportDate.ToString("(M월 d일 H시 일기예보 기준)\n");
+        var reportDateString = reportDate.ToString("(M월 d일 H시 기상청 일기예보 기준)\n");
 
         // TODO: 이 절망적인 나열을 개선하자.
         var minMaxTempComparisonText = GetMinMaxTempComparisonText(yesterday, yesterdayData, today, todayData);
@@ -146,41 +147,52 @@ public class WeatherContentCreator : ContentCreator
                 or WeatherCategoryType.RainPattern or WeatherCategoryType.RainPerHour
                 or WeatherCategoryType.SnowPerHour)
             .GroupBy(pair => pair.Item1)
+            .Select(group => new WeatherSlice(group))
             .Take(6);
 
-        var todayWeatherSummaryText = "오늘의 날씨를 요약하면, ";
-        foreach (var weatherData in todayWeatherSummaryData)
-        {
-            var weatherSlice = new WeatherSlice() { BaseDateTime = weatherData.Key };
-            foreach (var weatherContent in weatherData)
+
+        var rainDataBetween9And19ByDate = todayData.Where(pair => pair.Item1.Hour is > 9 and < 19)
+            .Where(pair => pair.Item2.Category.Type is WeatherCategoryType.RainProbability
+                or WeatherCategoryType.RainPattern or WeatherCategoryType.RainPerHour
+                or WeatherCategoryType.SnowPerHour)
+            .GroupBy(pair => pair.Item1) // 시간별로 그루핑
+            .Where(group =>
             {
-                switch (weatherContent.Item2.Category.Type)
-                {
-                    case WeatherCategoryType.RainProbability:
-                    {
-                        weatherSlice.RainProbability = float.Parse(weatherContent.Item2.ForecastValue);
-                        break;
-                    }
-                    case WeatherCategoryType.RainPattern:
-                    {
-                        weatherSlice.RainPattern =
-                            (WeatherSlice.RainPatternType)int.Parse(weatherContent.Item2.ForecastValue);
-                        break;
-                    }
-                    case WeatherCategoryType.RainPerHour:
-                    {
-                        weatherSlice.RainPerHour = weatherContent.Item2.ForecastValue;
-                        break;
-                    }
-                    case WeatherCategoryType.SnowPerHour:
-                    {
-                        weatherSlice.SnowPerHour = weatherContent.Item2.ForecastValue;
-                        break;
-                    }
-                }
+                return group.Any(pair => pair.Item2.Category.Type is WeatherCategoryType.RainPattern
+                                         && pair.Item2.ForecastValue is "1" or "2" or "3" or "4" or "5" or "6" or "7"
+                                             or "8" or "9" or "10"); //  비나 눈, 소나기
+            })
+            .Select(group => new WeatherShortSlice(group))
+            .GroupBy(slice => slice.ForecastDateTime.Date)
+            .ToDictionary(group => group.Key, group => group.ToList()); // 다시 날짜별로 그루핑
+
+        // 오전 9시 -> 그 사이의 강수량 -> 오후 7시 순으로 표시한다.
+        // 이미 9시를 지났다면, 강수량 -> 오후 7시 -> 다음날 오전 9시 순으로 표시한다.
+        // 그 사이의 강수확률이 있을 경우, "11시(10%), 12시(60%), 13시(30%)"와 같이 표시한다.
+
+        var combinedRainData = new List<WeatherSlice>();
+        foreach (var weatherSlice in todayWeatherSummaryData)
+        {
+            if (weatherSlice.ForecastDateTime.Hour < 12)
+            {
+                combinedRainData.Add(weatherSlice);
+                continue;
             }
 
-            todayWeatherSummaryText += weatherSlice + "\n";
+            var rainDataBetween9And19 = rainDataBetween9And19ByDate.FirstOrDefault(group =>
+                group.Key == weatherSlice.ForecastDateTime.Date);
+            if (rainDataBetween9And19.Value != null)
+            {
+                combinedRainData.AddRange(rainDataBetween9And19.Value);
+            }
+
+            combinedRainData.Add(weatherSlice);
+        }
+
+        var todayWeatherSummaryText = "[일기예보]\n";
+        foreach (var weatherSlice in combinedRainData)
+        {
+            todayWeatherSummaryText += weatherSlice;
         }
 
         var result = reportDateString + minMaxTempComparisonText + "\n" + todayWeatherSummaryText;
@@ -268,6 +280,7 @@ public class WeatherReportContentCreator : ContentCreator
 
             var toot = $"기상청 발표 기상시황({time} 발표):\n{report}";
             Logger.Log(toot);
+            toot = toot.Trim();
             return toot;
         }
         catch (Exception e)

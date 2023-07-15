@@ -135,26 +135,82 @@ public class WeatherSlice
         Hail,
     }
 
-    public DateTime BaseDateTime { get; init; }
-    public RainPatternType RainPattern { get; set; }
-    public float RainProbability { get; set; }
-    public string RainPerHour { get; set; }
-    public string SnowPerHour { get; set; }
+    public DateTime ForecastDateTime { get; init; }
+    public RainPatternType RainPattern { get; init; }
+    public float RainProbability { get; init; }
+    public string RainPerHour { get; init; }
+    public string SnowPerHour { get; init; }
+
+    public WeatherSlice(IGrouping<DateTime, (DateTime, WeatherContent)> weatherData)
+    {
+        ForecastDateTime = weatherData.Key;
+        foreach (var weatherContent in weatherData)
+        {
+            switch (weatherContent.Item2.Category.Type)
+            {
+                case WeatherCategoryType.RainProbability:
+                {
+                    RainProbability = float.Parse(weatherContent.Item2.ForecastValue);
+                    break;
+                }
+                case WeatherCategoryType.RainPattern:
+                {
+                    RainPattern =
+                        (RainPatternType)int.Parse(weatherContent.Item2.ForecastValue);
+                    break;
+                }
+                case WeatherCategoryType.RainPerHour:
+                {
+                    RainPerHour = weatherContent.Item2.ForecastValue;
+                    break;
+                }
+                case WeatherCategoryType.SnowPerHour:
+                {
+                    SnowPerHour = weatherContent.Item2.ForecastValue;
+                    break;
+                }
+            }
+        }
+    }
 
     public override string ToString()
     {
-        var result = $"{BaseDateTime.Day}일 {BaseDateTime.Hour}시에 ";
+        var result = ForecastDateTime.ToString("M월 d일 tt h시") + ": ";
         result += RainPattern switch
         {
-            RainPatternType.None => "맑습니다.",
+            RainPatternType.None => "☀️맑음",
             RainPatternType.Rain =>
-                $"비가 내릴 예정이며, 강수확률은 {RainProbability}% 입니다. 1시간 강수량은 {RainPerHour} 입니다.",
+                $"🌧️비: ({RainProbability}%, {RainPerHour})",
             RainPatternType.RainSnow =>
-                $"눈과 비가 내릴 예정이며, 강수확률은 {RainProbability}% 입니다. 1시간 강수량은 {RainPerHour} 입니다. 1시간 신적설은 {SnowPerHour}입니다.",
-            RainPatternType.Snow => $"눈이 내릴 예정이며, 강수확률은 {RainProbability}% 입니다. 1시간 신적설은 {SnowPerHour}입니다.",
+                $"🌨️눈과 비: ({RainProbability}%, 비 {RainPerHour}, 눈 {SnowPerHour}",
+            RainPatternType.Snow => $"❄️눈: ({RainProbability}%, {SnowPerHour})",
             RainPatternType.Hail =>
-                $"소나기가 내릴 예정이며, 강수확률은 {RainProbability}% 입니다.  1시간 강수량은 {RainPerHour} 입니다.",
+                $"⛈️소나기: ({RainProbability}%, {RainPerHour})",
         };
-        return result;
+        return "\n" + result;
+    }
+}
+
+class WeatherShortSlice : WeatherSlice
+{
+    public WeatherShortSlice(IGrouping<DateTime, (DateTime, WeatherContent)> weatherData) : base(weatherData)
+    {
+    }
+
+    public override string ToString()
+    {
+        var result = ForecastDateTime.ToString("h시");
+        result += RainPattern switch
+        {
+            RainPatternType.None => "☀️맑음",
+            RainPatternType.Rain =>
+                $"🌧️비({RainProbability}%, {RainPerHour})",
+            RainPatternType.RainSnow =>
+                $"🌨️눈과 비({RainProbability}%, 비 {RainPerHour}, 눈 {SnowPerHour}",
+            RainPatternType.Snow => $"❄️눈({RainProbability}%, {SnowPerHour})",
+            RainPatternType.Hail =>
+                $"⛈️소나기({RainProbability}%, {RainPerHour})",
+        };
+        return " |" + result;
     }
 }

@@ -67,13 +67,19 @@ namespace mastodon_bot
             if (toot != string.Empty)
             {
                 AddBotHashTags(ref toot);
+                AddBotReference(ref toot);
                 await tooterBase.MakeToot(toot);
             }
         }
 
         private static void AddBotHashTags(ref string toot)
         {
-            toot += "\n\n#봇 #bot #날씨";
+            toot += "\n\n#봇 #bot #날씨 ";
+        }
+
+        private static void AddBotReference(ref string toot)
+        {
+            toot += "(기상청 OpenAPI를 이용)";
         }
     }
 }

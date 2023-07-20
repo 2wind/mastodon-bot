@@ -49,19 +49,15 @@ namespace mastodon_bot
             var tooter = TooterBase.CreateTooter(noToot, provider.GetMastodonAccessToken(), provider.GetInstance(),
                 httpClient, maxRetryCount, delay);
 
-            // TODO 비동기 프로그래밍을 제대로 이용하기
+            var asyncToots = contentCreators.Select(creator => TryTootAsync(creator, tooter)).ToArray();
 
-            foreach (var creator in contentCreators)
+            try
             {
-                try
-                {
-                    TryTootAsync(creator, tooter).Wait();
-                }
-                catch (Exception e)
-                {
-                    Logger.LogError(e);
-                    continue;
-                }
+                Task.WaitAll(asyncToots);
+            }
+            catch (Exception e)
+            {
+                Logger.LogError(e);
             }
         }
 

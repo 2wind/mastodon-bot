@@ -17,7 +17,7 @@ public abstract class TooterBase
 
 public class TestTooter : TooterBase
 {
-    public override async Task MakeToot(string toot)
+    public override Task MakeToot(string toot)
     {
         if (toot.Length > Constants.MaxTootLength)
         {
@@ -26,6 +26,7 @@ public class TestTooter : TooterBase
 
         Console.WriteLine("Dummy tooter, no actual toot made!");
         Console.WriteLine($"Tooting :{toot}");
+        return Task.CompletedTask;
     }
 }
 

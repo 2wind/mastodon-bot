@@ -51,18 +51,21 @@ public class WeatherContentCreator : ContentCreator
     public override async Task<string> FetchToToot(DateTime dateTime)
     {
         var yesterday = new DateTime(dateTime.Year, dateTime.Month, dateTime.Day - 1, 02, 11, 00);
-        var contentYesterday = await FetchAsync(yesterday);
-        using var jsonYesterday = JsonDocument.Parse(contentYesterday);
-
         var today2Am = new DateTime(dateTime.Year, dateTime.Month, dateTime.Day, 02, 11, 00);
-        var contentToday2Am = await FetchAsync(today2Am);
-        using var jsonToday2Am = JsonDocument.Parse(contentToday2Am);
 
-        var contentToday = await FetchAsync(dateTime);
-        using var jsonToday = JsonDocument.Parse(contentToday);
 
-        var toot = ToToot(jsonYesterday, jsonToday2Am, jsonToday);
+        var jsonDocuments = await Task.WhenAll(FetchAsyncToJson(yesterday), FetchAsyncToJson(today2Am),
+            FetchAsyncToJson(dateTime));
+
+        var toot = ToToot(jsonDocuments[0], jsonDocuments[1], jsonDocuments[2]);
         return toot;
+    }
+
+    private async Task<JsonDocument> FetchAsyncToJson(DateTime dateTime)
+    {
+        var content = await FetchAsync(dateTime);
+        var json = JsonDocument.Parse(content);
+        return json;
     }
 
 

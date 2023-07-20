@@ -50,21 +50,26 @@ public class WeatherContentCreator : ContentCreator
 
     public override async Task<string> FetchToToot(DateTime dateTime)
     {
-        var contentYesterday = await FetchAsync(DateTime.Now.AddDays(-1));
+        var yesterday = new DateTime(dateTime.Year, dateTime.Month, dateTime.Day - 1, 02, 11, 00);
+        var contentYesterday = await FetchAsync(yesterday);
         using var jsonYesterday = JsonDocument.Parse(contentYesterday);
 
-        var contentToday = await FetchAsync(DateTime.Now);
+        var today2Am = new DateTime(dateTime.Year, dateTime.Month, dateTime.Day, 02, 11, 00);
+        var contentToday2Am = await FetchAsync(today2Am);
+        using var jsonToday2Am = JsonDocument.Parse(contentToday2Am);
+
+        var contentToday = await FetchAsync(dateTime);
         using var jsonToday = JsonDocument.Parse(contentToday);
 
-        var toot = ToToot(jsonYesterday, jsonToday);
+        var toot = ToToot(jsonYesterday, jsonToday2Am, jsonToday);
         return toot;
     }
 
 
-    private string ToToot(JsonDocument yesterdayJson, JsonDocument todayJson)
+    private string ToToot(JsonDocument jsonYesterday, JsonDocument jsonToday2Am, JsonDocument jsonToday)
     {
-        string GetMinMaxTempComparisonText(DateTime dateTime, List<(DateTime, WeatherContent)> valueTuples,
-            DateTime today1, List<(DateTime, WeatherContent)> list)
+        string GetMinMaxTempComparisonText(DateTime previous, List<(DateTime, WeatherContent)> previousValueTuples,
+            DateTime current, List<(DateTime, WeatherContent)> currentValueTuples)
         {
             string GetComparison(string title, float prev, float next)
             {
@@ -80,8 +85,8 @@ public class WeatherContentCreator : ContentCreator
             }
 
             // 어제 데이터와 오늘에서 어제 기록 중, 일 최저기온과 일 최고기온을 추출한다.
-            var yesterdayMinMaxTemp = GetMinMaxTemp(dateTime, valueTuples);
-            var todayMinMaxTemp = GetMinMaxTemp(today1, list);
+            var yesterdayMinMaxTemp = GetMinMaxTemp(previous, previousValueTuples);
+            var todayMinMaxTemp = GetMinMaxTemp(current, currentValueTuples);
 
             if (yesterdayMinMaxTemp.Count != 2 || todayMinMaxTemp.Count != 2)
             {
@@ -113,14 +118,15 @@ public class WeatherContentCreator : ContentCreator
         var today = DateTime.Now;
         var yesterday = DateTime.Now.AddDays(-1);
 
-        var yesterdayData = ToWeatherContents(yesterdayJson);
-        var todayData = ToWeatherContents(todayJson);
+        var yesterdayData = ToWeatherContents(jsonYesterday);
+        var todayData = ToWeatherContents(jsonToday);
 
         var reportDate = todayData.First().Item2.BaseDateTime;
         var reportDateString = reportDate.ToString("(M월 d일 H시 기상청 일기예보 기준)\n");
 
         // TODO: 이 절망적인 나열을 개선하자.
-        var minMaxTempComparisonText = GetMinMaxTempComparisonText(yesterday, yesterdayData, today, todayData);
+        var minMaxTempComparisonText =
+            GetMinMaxTempComparisonText(yesterday, yesterdayData, today, ToWeatherContents(jsonToday2Am));
 
         // 오늘의 날씨를 요약한다. 오늘로부터 09시, 19시의 강수확률과 강수량을 최대 6회까지 추출한다.
         var todayWeatherSummaryData = todayData.Where(pair => pair.Item1.Hour is 9 or 19)

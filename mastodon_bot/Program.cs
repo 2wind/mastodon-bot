@@ -34,7 +34,7 @@ namespace mastodon_bot
 
             var provider = new Provider();
             var serviceKey = provider.GetServiceKey();
-            var position = provider.GetPositionBasedOnTime(DateTime.Now);
+            var position = provider.GetPositionBasedOnTime(DateTime.Now); // TODO: 시간에 따라 바뀌는 값이므로 갱신 필요.
             var (maxRetryCount, delay) = provider.GetRetryInfo();
 
             var httpClient = new HttpClient();
@@ -49,11 +49,29 @@ namespace mastodon_bot
             var tooter = TooterBase.CreateTooter(noToot, provider.GetMastodonAccessToken(), provider.GetInstance(),
                 httpClient, maxRetryCount, delay);
 
-            var asyncToots = contentCreators.Select(creator => TryTootAsync(creator, tooter)).ToArray();
+            // while (true) // TODO: 서버를 돌리는 데 이것보다 더 좋은 방법은?
+            {
+                // var tootInfos = CheckTootMentions(tooter);
+                // RespondToTootMentions(tootInfos, tooter);
 
+                if (true) // TODO: 특정 시간에만 실행되도록 변경. 
+                {
+                    MakeAsyncTootsBySchedule(contentCreators, tooter);
+                }
+            }
+        }
+
+        private static async void MakeAsyncTootsBySchedule(List<ContentCreator> contentCreators, TooterBase tooter)
+        {
             try
             {
-                Task.WaitAll(asyncToots);
+                var asyncToots = contentCreators.Select(creator => creator.FetchToToot(DateTime.Now)).ToArray();
+                var toots = Task.WhenAll(asyncToots);
+
+                foreach (var toot in toots.Result)
+                {
+                    TryTootAsync(toot, tooter).Wait(3000);
+                }
             }
             catch (Exception e)
             {
@@ -61,15 +79,16 @@ namespace mastodon_bot
             }
         }
 
-        private static async Task TryTootAsync(ContentCreator contentCreator, TooterBase tooterBase)
+        private static async Task TryTootAsync(string toot, TooterBase tooterBase)
         {
-            var toot = await contentCreator.FetchToToot(DateTime.Now);
             if (toot != string.Empty)
             {
                 AddBotHashTags(ref toot);
                 AddBotReference(ref toot);
                 await tooterBase.MakeToot(toot);
             }
+
+            await Task.CompletedTask;
         }
 
         private static void AddBotHashTags(ref string toot)

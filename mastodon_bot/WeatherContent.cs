@@ -177,7 +177,7 @@ public class WeatherSlice
 
     public override string ToString()
     {
-        var result = ForecastDateTime.ToString("M월 d일 tt h시", new CultureInfo("ko-KR")) + ": ";
+        var result = ForecastDateTime.ToString("M월 d일(ddd) tt h시", new CultureInfo("ko-KR")) + ": ";
         result += RainPattern switch
         {
             RainPatternType.None => "☀️맑음",

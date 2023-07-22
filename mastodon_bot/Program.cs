@@ -19,7 +19,7 @@ namespace mastodon_bot
             public bool NoToot { get; set; }
         }
 
-        static void Main(string[] args)
+        static async Task Main(string[] args)
         {
             CultureInfo.CurrentCulture = new CultureInfo("ko-KR");
 
@@ -56,49 +56,9 @@ namespace mastodon_bot
 
                 if (true) // TODO: 특정 시간에만 실행되도록 변경. 
                 {
-                    MakeAsyncTootsBySchedule(contentCreators, tooter);
+                    await tooter.MakeAsyncTootsBySchedule(contentCreators);
                 }
             }
-        }
-
-        private static async void MakeAsyncTootsBySchedule(List<ContentCreator> contentCreators, TooterBase tooter)
-        {
-            try
-            {
-                var asyncToots = contentCreators.Select(creator => creator.FetchToToot(DateTime.Now)).ToArray();
-                var toots = Task.WhenAll(asyncToots);
-
-                foreach (var toot in toots.Result)
-                {
-                    TryTootAsync(toot, tooter).Wait(3000);
-                }
-            }
-            catch (Exception e)
-            {
-                Logger.LogError(e);
-            }
-        }
-
-        private static async Task TryTootAsync(string toot, TooterBase tooterBase)
-        {
-            if (toot != string.Empty)
-            {
-                AddBotHashTags(ref toot);
-                AddBotReference(ref toot);
-                await tooterBase.MakeToot(toot);
-            }
-
-            await Task.CompletedTask;
-        }
-
-        private static void AddBotHashTags(ref string toot)
-        {
-            toot += "\n\n#봇 #bot #날씨 ";
-        }
-
-        private static void AddBotReference(ref string toot)
-        {
-            toot += "(기상청 OpenAPI를 이용)";
         }
     }
 }

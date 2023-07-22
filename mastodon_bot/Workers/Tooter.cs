@@ -13,6 +13,47 @@ public abstract class TooterBase
             ? new TestTooter()
             : new Tooter(accessToken, instance, httpClient, maxRetry, delay);
     }
+
+    public async Task MakeAsyncTootsBySchedule(List<ContentCreator> contentCreators)
+    {
+        try
+        {
+            var asyncToots = contentCreators.Select(creator => creator.FetchToToot(DateTime.Now)).ToArray();
+            var toots = await Task.WhenAll(asyncToots);
+
+            foreach (var toot in toots)
+            {
+                TryTootAsync(toot).Wait(3000);
+            }
+        }
+        catch (Exception e)
+        {
+            Logger.LogError(e);
+        }
+    }
+
+
+    public async Task TryTootAsync(string toot)
+    {
+        if (toot != string.Empty)
+        {
+            AddBotHashTags(ref toot);
+            AddBotReference(ref toot);
+            await MakeToot(toot);
+        }
+
+        await Task.CompletedTask;
+    }
+
+    private static void AddBotHashTags(ref string toot)
+    {
+        toot += "\n\n#봇 #bot #날씨 ";
+    }
+
+    private static void AddBotReference(ref string toot)
+    {
+        toot += "(기상청 OpenAPI를 이용)";
+    }
 }
 
 public class TestTooter : TooterBase

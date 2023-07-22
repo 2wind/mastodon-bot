@@ -58,6 +58,12 @@ public class WeatherContentCreator : ContentCreator
             FetchAsyncToJson(dateTime));
 
         var toot = ToToot(jsonDocuments[0], jsonDocuments[1], jsonDocuments[2]);
+
+        foreach (var jsonDocument in jsonDocuments)
+        {
+            jsonDocument.Dispose();
+        }
+
         return toot;
     }
 

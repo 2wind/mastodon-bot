@@ -92,7 +92,8 @@ public class Tooter : TooterBase
     {
         if (toot.Length > Constants.MaxTootLength)
         {
-            throw new ArgumentException($"Toot is too long! {toot.Length}");
+            Logger.LogError($"Toot is too long! {toot.Length} -> truncating...");
+            toot = toot.Substring(0, Constants.MaxTootLength);
         }
 
         var tryCount = 0;

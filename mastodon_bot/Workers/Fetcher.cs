@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.WebUtilities;
+﻿using System.Text.Json;
+using Microsoft.AspNetCore.WebUtilities;
 
 namespace mastodon_bot;
 
@@ -42,6 +43,19 @@ public class Fetcher : FetcherBase
 
                 var response = await _httpClient.GetAsync(fullUrl);
                 content = response.Content.ReadAsStringAsync().Result;
+
+                var json = JsonDocument.Parse(content);
+                if (json.RootElement.TryGetProperty("response", out var responseJson)
+                    && responseJson.TryGetProperty("header", out var headerJson)
+                    && headerJson.TryGetProperty("resultCode", out var resultCodeJson))
+                {
+                    var resultCode = resultCodeJson.GetString();
+                    if (resultCode is not "00")
+                    {
+                        throw new Exception($"API 호출에 실패했습니다. fullUrl: {fullUrl}, resultCode: {resultCode}");
+                    }
+                }
+
                 Logger.Log($"Successfully fetched content! length {content.Length}");
                 Logger.Log($"Content: {content[0..Math.Min(content.Length, 100)]}...");
                 success = true;

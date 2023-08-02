@@ -5,13 +5,21 @@
         <TargetFramework>net7.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
+        <GenerateProgramFile>false</GenerateProgramFile>
     </PropertyGroup>
 
     <ItemGroup>
-      <PackageReference Include="CommandLineParser" Version="2.9.1" />
-      <PackageReference Include="Mastonet" Version="2.4.0-preview-separate-entities-1" />
-      <PackageReference Include="Microsoft.AspNetCore.WebUtilities" Version="2.2.0" />
-      <PackageReference Include="Tomlyn" Version="0.16.2" />
+        <PackageReference Include="CommandLineParser" Version="2.9.1"/>
+        <PackageReference Include="Mastonet" Version="2.4.0-preview-separate-entities-1"/>
+        <PackageReference Include="Microsoft.AspNetCore.WebUtilities" Version="2.2.0"/>
+        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.7.0-preview-23364-03"/>
+        <PackageReference Include="RichardSzalay.MockHttp" Version="6.0.0"/>
+        <PackageReference Include="Tomlyn" Version="0.16.2"/>
+        <PackageReference Include="xunit" Version="2.5.1-pre.12"/>
+        <PackageReference Include="xunit.runner.visualstudio" Version="2.5.1-pre.4">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
     </ItemGroup>
 
 </Project>

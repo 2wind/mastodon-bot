@@ -127,8 +127,14 @@ public class WeatherContentCreator : ContentCreator
         var today = DateTime.Now;
         var yesterday = DateTime.Now.AddDays(-1);
 
+
         var yesterdayData = ToWeatherContents(jsonYesterday);
         var todayData = ToWeatherContents(jsonToday);
+
+        if (todayData.Count == 0)
+        {
+            return string.Empty;
+        }
 
         var reportDate = todayData.First().Item2.BaseDateTime;
         var reportDateString = reportDate.ToString("(M월 d일 H시 기상청 일기예보 기준)\n");
@@ -137,30 +143,8 @@ public class WeatherContentCreator : ContentCreator
         var minMaxTempComparisonText =
             GetMinMaxTempComparisonText(yesterday, yesterdayData, today, ToWeatherContents(jsonToday2Am));
 
-        // 오늘의 날씨를 요약한다. 오늘로부터 09시, 19시의 강수확률과 강수량을 최대 6회까지 추출한다.
-        var todayWeatherSummaryData = todayData.Where(pair => pair.Item1.Hour is 9 or 19)
-            .Where(pair => pair.Item2.Category.Type is WeatherCategoryType.RainProbability
-                or WeatherCategoryType.RainPattern or WeatherCategoryType.RainPerHour
-                or WeatherCategoryType.SnowPerHour)
-            .GroupBy(pair => pair.Item1)
-            .Select(group => new WeatherSlice(group))
-            .Take(6);
-
-
-        var rainDataBetween9And19ByDate = todayData.Where(pair => pair.Item1.Hour is > 9 and < 19)
-            .Where(pair => pair.Item2.Category.Type is WeatherCategoryType.RainProbability
-                or WeatherCategoryType.RainPattern or WeatherCategoryType.RainPerHour
-                or WeatherCategoryType.SnowPerHour)
-            .GroupBy(pair => pair.Item1) // 시간별로 그루핑
-            .Where(group =>
-            {
-                return group.Any(pair => pair.Item2.Category.Type is WeatherCategoryType.RainPattern
-                                         && pair.Item2.ForecastValue is "1" or "2" or "3" or "4" or "5" or "6" or "7"
-                                             or "8" or "9" or "10"); //  비나 눈, 소나기
-            })
-            .Select(group => new WeatherShortSlice(group))
-            .GroupBy(slice => slice.ForecastDateTime.Date)
-            .ToDictionary(group => group.Key, group => group.ToList()); // 다시 날짜별로 그루핑
+        var todayWeatherSummaryData = TodayWeatherSummaryData(todayData);
+        var rainDataBetween9And19ByDate = RainDataBetween9And19ByDate(todayData);
 
         // 오전 9시 -> 그 사이의 강수량 -> 오후 7시 순으로 표시한다.
         // 이미 9시를 지났다면, 강수량 -> 오후 7시 -> 다음날 오전 9시 순으로 표시한다.
@@ -215,27 +199,68 @@ public class WeatherContentCreator : ContentCreator
         return result.Trim();
     }
 
-    private List<(DateTime, WeatherContent)> ToWeatherContents(JsonDocument jsonDocument)
+    private static Dictionary<DateTime, List<WeatherShortSlice>> RainDataBetween9And19ByDate(
+        List<(DateTime, WeatherContent)> todayData)
     {
-        var items = jsonDocument.RootElement.GetProperty("response").GetProperty("body").GetProperty("items")
-            .GetProperty("item");
-        var test = items.EnumerateArray();
-
-        return (test.Select(itemElement => itemElement.Deserialize<WeatherContentRaw>())
-                .Where(weatherContentRaw => weatherContentRaw != null)
-                .Select(weatherContentRaw => new WeatherContent(weatherContentRaw)))
-            .Select(content => (content.ForecastDateTime, content)).ToList();
+        var rainDataBetween9And19ByDate = todayData.Where(pair => pair.Item1.Hour is > 9 and < 19)
+            .Where(pair => pair.Item2.Category.Type is WeatherCategoryType.RainProbability
+                or WeatherCategoryType.RainPattern or WeatherCategoryType.RainPerHour
+                or WeatherCategoryType.SnowPerHour)
+            .GroupBy(pair => pair.Item1) // 시간별로 그루핑
+            .Where(group =>
+            {
+                return group.Any(pair => pair.Item2.Category.Type is WeatherCategoryType.RainPattern
+                                         && pair.Item2.ForecastValue is "1" or "2" or "3" or "4" or "5" or "6" or "7"
+                                             or "8" or "9" or "10"); //  비나 눈, 소나기
+            })
+            .Select(group => new WeatherShortSlice(group))
+            .GroupBy(slice => slice.ForecastDateTime.Date)
+            .ToDictionary(group => group.Key, group => group.ToList()); // 다시 날짜별로 그루핑
+        return rainDataBetween9And19ByDate;
     }
 
-    private DateTime GetReportTime(DateTime dateTime)
+    private static IEnumerable<WeatherSlice> TodayWeatherSummaryData(List<(DateTime, WeatherContent)> todayData)
+    {
+        // 오늘의 날씨를 요약한다. 오늘로부터 09시, 19시의 강수확률과 강수량을 최대 6회까지 추출한다.
+        var todayWeatherSummaryData = todayData.Where(pair => pair.Item1.Hour is 9 or 19)
+            .Where(pair => pair.Item2.Category.Type is WeatherCategoryType.RainProbability
+                or WeatherCategoryType.RainPattern or WeatherCategoryType.RainPerHour
+                or WeatherCategoryType.SnowPerHour)
+            .GroupBy(pair => pair.Item1)
+            .Select(group => new WeatherSlice(group))
+            .Take(6);
+        return todayWeatherSummaryData;
+    }
+
+    private List<(DateTime, WeatherContent)> ToWeatherContents(JsonDocument jsonDocument)
+    {
+        try
+        {
+            var items = jsonDocument.RootElement.GetProperty("response").GetProperty("body").GetProperty("items")
+                .GetProperty("item");
+            var test = items.EnumerateArray();
+
+            return (test.Select(itemElement => itemElement.Deserialize<WeatherContentRaw>())
+                    .Where(weatherContentRaw => weatherContentRaw != null)
+                    .Select(weatherContentRaw => new WeatherContent(weatherContentRaw)))
+                .Select(content => (content.ForecastDateTime, content)).ToList();
+        }
+        catch (Exception e)
+        {
+            Logger.LogError(e);
+            return new List<(DateTime, WeatherContent)>();
+        }
+    }
+
+    public static DateTime GetReportTime(DateTime dateTime)
     {
         var shortReportHours = new int[] { 23, 20, 17, 14, 11, 8, 5, 2 };
         foreach (var reportHour in shortReportHours)
         {
-            if (dateTime.Hour > reportHour && dateTime.Minute > 10)
-            {
-                return new DateTime(dateTime.Year, dateTime.Month, dateTime.Day, reportHour, 0, 0);
-            }
+            if (dateTime.Hour < reportHour) continue;
+            if (dateTime.Hour == reportHour && dateTime.Minute <= 10) continue;
+
+            return new DateTime(dateTime.Year, dateTime.Month, dateTime.Day, reportHour, 0, 0);
         }
 
         // 만약 2시 10분 이전이라면 여기에 걸릴 것이며, 전날 23시로 돌아가야 한다.

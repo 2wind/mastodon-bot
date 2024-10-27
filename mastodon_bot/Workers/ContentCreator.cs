@@ -54,9 +54,9 @@ public class WeatherContentCreator : ContentCreator
         var yesterday = new DateTime(dateTime.Year, dateTime.Month, dateTime.Day - 1, 02, 11, 00);
         var today2Am = new DateTime(dateTime.Year, dateTime.Month, dateTime.Day, 02, 11, 00);
 
-        File.Delete(dayBeforeYesterday.ToString("yyyyMMdd") + ".json");
+        File.Delete(ToDateFileName(dayBeforeYesterday));
 
-        var yesterdayFileName = yesterday.ToString("yyyyMMdd") + ".json";
+        var yesterdayFileName = ToDateFileName(yesterday);
         JsonDocument yesterdayDocument;
         if (File.Exists(yesterdayFileName))
         {
@@ -72,8 +72,7 @@ public class WeatherContentCreator : ContentCreator
 
         var toot = ToToot(yesterdayDocument, jsonDocuments[0], jsonDocuments[1]);
 
-        await File.CreateText(today2Am.ToString("yyyyMMdd") + ".json")
-            .WriteAsync(jsonDocuments[0].RootElement.GetRawText());
+        await File.CreateText(ToDateFileName(dateTime)).WriteAsync(jsonDocuments[1].RootElement.GetRawText());
 
         foreach (var jsonDocument in jsonDocuments)
         {
@@ -81,6 +80,11 @@ public class WeatherContentCreator : ContentCreator
         }
 
         return toot;
+    }
+
+    private static string ToDateFileName(DateTime dateTime)
+    {
+        return dateTime.ToString("yyyyMMdd") + ".json";
     }
 
     private async Task<JsonDocument> FetchAsyncToJson(DateTime dateTime)

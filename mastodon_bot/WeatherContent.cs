@@ -178,16 +178,20 @@ public class WeatherSlice
     public override string ToString()
     {
         var result = ForecastDateTime.ToString("M월 d일(ddd) tt h시", new CultureInfo("ko-KR")) + ": ";
+
+        var rainPerHour = RainPerHour is "1mm 미만" ? string.Empty : RainPerHour;
+        var snowPerHour = SnowPerHour is "1.0cm 미만" ? string.Empty : SnowPerHour;
+
         result += RainPattern switch
         {
             RainPatternType.None => "☀️맑음",
             RainPatternType.Rain =>
-                $"🌧️비: ({RainProbability}%, {RainPerHour})",
+                string.Join(", ", $"🌧️비: ({RainProbability}%", rainPerHour, ")"),
             RainPatternType.RainSnow =>
-                $"🌨️눈과 비: ({RainProbability}%, 비 {RainPerHour}, 눈 {SnowPerHour}",
-            RainPatternType.Snow => $"❄️눈: ({RainProbability}%, {SnowPerHour})",
+                string.Join(", ", $"🌨️눈과 비({RainProbability}%", rainPerHour, snowPerHour, ")"),
+            RainPatternType.Snow => string.Join(", ", $"❄️눈({RainProbability}%", snowPerHour, ")"),
             RainPatternType.Hail =>
-                $"⛈️소나기: ({RainProbability}%, {RainPerHour})",
+                string.Join(", ", $"⛈️소나기({RainProbability}%", rainPerHour, ")"),
         };
         return result;
     }
@@ -202,16 +206,20 @@ class WeatherShortSlice : WeatherSlice
     public override string ToString()
     {
         var result = ForecastDateTime.ToString("h시");
+
+        var rainPerHour = RainPerHour is "1mm 미만" ? string.Empty : RainPerHour;
+        var snowPerHour = SnowPerHour is "1.0cm 미만" ? string.Empty : SnowPerHour;
+
         result += RainPattern switch
         {
             RainPatternType.None => "☀️맑음",
             RainPatternType.Rain =>
-                $"🌧️비({RainProbability}%, {RainPerHour})",
+                string.Join(", ", $"🌧️비({RainProbability}%", rainPerHour, ")"),
             RainPatternType.RainSnow =>
-                $"🌨️눈과 비({RainProbability}%, 비 {RainPerHour}, 눈 {SnowPerHour}",
-            RainPatternType.Snow => $"❄️눈({RainProbability}%, {SnowPerHour})",
+                string.Join(", ", $"🌨️눈과 비({RainProbability}%", rainPerHour, snowPerHour, ")"),
+            RainPatternType.Snow => string.Join(", ", $"❄️눈({RainProbability}%", snowPerHour, ")"),
             RainPatternType.Hail =>
-                $"⛈️소나기({RainProbability}%, {RainPerHour})",
+                string.Join(", ", $"⛈️소나기({RainProbability}%", rainPerHour, ")"),
         };
         return result;
     }

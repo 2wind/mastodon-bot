@@ -17,6 +17,9 @@ namespace mastodon_bot
 
             [Option('n', "notoot", Required = false, HelpText = "Do not toot.")]
             public bool NoToot { get; set; }
+
+            [Option('N', "Ntfy", Required = false, HelpText = "Use Ntfy.sh")]
+            public bool Ntfy { get; set; }
         }
 
         static async Task Main(string[] args)
@@ -24,11 +27,13 @@ namespace mastodon_bot
             CultureInfo.CurrentCulture = new CultureInfo("ko-KR");
 
             var isLocal = false;
-            var noToot = false;
+            var tooterType = TooterBase.TooterType.Tooter;
             Parser.Default.ParseArguments<Options>(args).WithParsed(options =>
             {
                 isLocal = options.IsLocal;
-                noToot = options.NoToot;
+                tooterType = options.NoToot ? TooterBase.TooterType.DummyTooter
+                    : options.Ntfy ? TooterBase.TooterType.NtfyTooter
+                    : TooterBase.TooterType.Tooter;
                 Logger.IsVerbose = options.Verbose;
             });
 
@@ -46,7 +51,7 @@ namespace mastodon_bot
                 new WeatherReportContentCreator(serviceKey, fetcher)
             };
 
-            var tooter = TooterBase.CreateTooter(noToot, provider.GetMastodonAccessToken(), provider.GetInstance(),
+            var tooter = TooterBase.CreateTooter(tooterType, provider.GetMastodonAccessToken(), provider.GetInstance(), provider.GetNtfyPassword(),
                 httpClient, maxRetryCount, delay);
 
             // while (true) // TODO: 서버를 돌리는 데 이것보다 더 좋은 방법은?

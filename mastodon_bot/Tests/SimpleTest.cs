@@ -15,7 +15,7 @@ public class SimpleTest
     [Fact]
     public void TooterTest()
     {
-        var tooter = TooterBase.CreateTooter(true, "1234", "https://example.org/toot", null, 0, 0);
+        var tooter = TooterBase.CreateTooter(TooterBase.TooterType.DummyTooter, "1234", "https://example.org/toot", "string", null, 0, 0);
         Assert.NotNull(tooter);
 
         tooter.TryTootAsync("test").Wait();
@@ -47,7 +47,7 @@ public class SimpleTest
 
         var httpClient = mockHttp.ToHttpClient();
 
-        var tooter = TooterBase.CreateTooter(false, "1234", "https://example.org/toot", httpClient, 5, 1.0f);
+        var tooter = TooterBase.CreateTooter(TooterBase.TooterType.Tooter, "1234", "https://example.org/toot", "password",  httpClient, 5, 1.0f);
         Assert.NotNull(tooter);
 
         await tooter.TryTootAsync(toot);

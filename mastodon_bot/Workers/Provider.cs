@@ -25,6 +25,7 @@ public class Provider
     public string GetServiceKey() => GetSettingKey<string>("serviceKey");
     public string GetInstance() => GetSettingKey<string>("instance");
     public string GetMastodonAccessToken() => GetSettingKey<string>("accessToken");
+    public string GetNtfyPassword() => GetSettingKey<string>("password");
 
     public (int maxRetryCount, float delay) GetRetryInfo()
     {

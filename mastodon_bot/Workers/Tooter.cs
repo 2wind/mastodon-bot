@@ -4,14 +4,35 @@ using Mastonet;
 
 public abstract class TooterBase
 {
+    public enum TooterType
+    {
+        DummyTooter,
+        Tooter,
+        NtfyTooter,
+    }
     public abstract Task MakeToot(string toot);
 
-    public static TooterBase CreateTooter(bool isLocal, string accessToken, string instance, HttpClient httpClient,
-        int maxRetry, float delay)
+    public static TooterBase CreateTooter(TooterType tooterType, string accessToken, string instance, string ntfyPassword,
+    HttpClient httpClient, int maxRetry, float delay)
     {
-        return isLocal
-            ? new TestTooter()
-            : new Tooter(accessToken, instance, httpClient, maxRetry, delay);
+
+
+        switch (tooterType)
+        {
+            case TooterType.Tooter:
+                {
+                    return new Tooter(accessToken, instance, httpClient, maxRetry, delay);
+                }
+            case TooterType.NtfyTooter:
+                {
+                    return new NtfyTooter(ntfyPassword, httpClient, maxRetry, delay);
+                }
+            case TooterType.DummyTooter:
+            default:
+                {
+                    return new TestTooter();
+                }
+        }
     }
 
     public async Task MakeAsyncTootsBySchedule(List<ContentCreator> contentCreators)
@@ -71,6 +92,53 @@ public class TestTooter : TooterBase
     }
 }
 
+public class NtfyTooter : TooterBase
+{
+    private string _password;
+    private HttpClient _httpClient;
+    private double _maxRetry;
+    private readonly float _delay;
+
+
+    public NtfyTooter(string password, HttpClient httpClient, int maxRetry, float delay)
+    {
+        _password = password;
+        _httpClient = httpClient;
+        _maxRetry = maxRetry;
+        _delay = delay;
+    }
+
+    public override async Task MakeToot(string toot)
+    {
+        using var content = new StringContent(toot);
+
+        var tryCount = 0;
+        var success = false;
+        while (!success && tryCount < _maxRetry)
+        {
+            try
+            {
+                Logger.Log($"Tooting :{toot}");
+                using var response = await _httpClient.PostAsync($"https://ntfy.sh/{_password}", content);
+                success = true;
+            }
+            catch (Exception e)
+            {
+                Logger.LogError(e);
+                Logger.Log($"Retrying after {_delay}...({tryCount} / {_maxRetry}))");
+                if (tryCount >= _maxRetry)
+                {
+                    throw;
+                }
+            }
+
+
+            await Task.Delay(TimeSpan.FromSeconds(_delay));
+            tryCount++;
+        }
+    }
+}
+
 public class Tooter : TooterBase
 {
     private readonly string _accessToken;
@@ -93,7 +161,7 @@ public class Tooter : TooterBase
         if (toot.Length > Constants.MaxTootLength)
         {
             Logger.LogError($"Toot is too long! {toot.Length} -> truncating...");
-            toot = toot.Substring(0, Constants.MaxTootLength);
+            toot = toot[..Constants.MaxTootLength];
         }
 
         var tryCount = 0;

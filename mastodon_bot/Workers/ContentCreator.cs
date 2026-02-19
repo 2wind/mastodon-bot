@@ -117,16 +117,25 @@ public class WeatherContentCreator : ContentCreator
             var yesterdayMinMaxTemp = GetMinMaxTemp(previous, previousValueTuples);
             var todayMinMaxTemp = GetMinMaxTemp(current, currentValueTuples);
 
-            if (yesterdayMinMaxTemp.Count != 2 || todayMinMaxTemp.Count != 2)
+            if (todayMinMaxTemp.Count != 2)
             {
                 Logger.LogError("어제나 오늘의 최저기온과 최고기온이 모두 존재하지 않습니다.");
                 return "";
             }
 
+            float todayMin, todayMax;
+
+            if (yesterdayMinMaxTemp.Count != 2 && todayMinMaxTemp.Count == 2)
+            {
+                todayMin = todayMinMaxTemp[WeatherCategoryType.DailyMinTemperature];
+                todayMax = todayMinMaxTemp[WeatherCategoryType.DailyMaxTemperature];
+                return $"{GetComparison("최저기온", todayMin, todayMin)} {GetComparison("최고기온", todayMax, todayMax)}";
+            }
+
             var yesterdayMin = yesterdayMinMaxTemp[WeatherCategoryType.DailyMinTemperature];
             var yesterdayMax = yesterdayMinMaxTemp[WeatherCategoryType.DailyMaxTemperature];
-            var todayMin = todayMinMaxTemp[WeatherCategoryType.DailyMinTemperature];
-            var todayMax = todayMinMaxTemp[WeatherCategoryType.DailyMaxTemperature];
+            todayMin = todayMinMaxTemp[WeatherCategoryType.DailyMinTemperature];
+            todayMax = todayMinMaxTemp[WeatherCategoryType.DailyMaxTemperature];
 
             var s = $"{GetComparison("최저기온", yesterdayMin, todayMin)} {GetComparison("최고기온", yesterdayMax, todayMax)}";
             return s;
@@ -294,19 +303,25 @@ public class WeatherContentCreator : ContentCreator
     {
         try
         {
-            var items = jsonDocument.RootElement.GetProperty("response").GetProperty("body").GetProperty("items")
+            if (!jsonDocument.RootElement.TryGetProperty("response", out var response))
+            {
+                Logger.Log("해당하는 내용이 없으므로 넘어갑니다.");
+                return [];
+            }
+
+            var items = response.GetProperty("body").GetProperty("items")
                 .GetProperty("item");
             var test = items.EnumerateArray();
 
-            return (test.Select(itemElement => itemElement.Deserialize<WeatherContentRaw>())
+            return [.. test.Select(itemElement => itemElement.Deserialize<WeatherContentRaw>())
                     .Where(weatherContentRaw => weatherContentRaw != null)
-                    .Select(weatherContentRaw => new WeatherContent(weatherContentRaw)))
-                .Select(content => (content.ForecastDateTime, content)).ToList();
+                    .Select(static ct => new WeatherContent(ct))
+                .Select(content => (content.ForecastDateTime, content))];
         }
         catch (Exception e)
         {
             Logger.LogError(e);
-            return new List<(DateTime, WeatherContent)>();
+            return [];
         }
     }
 
